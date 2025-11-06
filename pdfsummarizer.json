@@ -1,0 +1,181 @@
+{
+  "name": "pdfsummarizer",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "279bf20f-f59a-4f30-8967-ba8fc14aa8e4",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "fileSelector": "/files/AI.pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        224,
+        0
+      ],
+      "id": "9e0569e2-a7d4-4e7b-b03e-0517853f3ce9",
+      "name": "Read/Write Files from Disk"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        448,
+        0
+      ],
+      "id": "87d43eb9-e0e5-4b17-8c46-f09bf10c223d",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "language": "python",
+        "pythonCode": "# Loop over input items and add a new field called 'myNewField' to the JSON of each one\noutput = {}\nfor item in _input.all():\n  item.json.myNewField = 1\n\ndata = _input.to_py()['item']['json']['text']\nreturn {\"data\":data}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ],
+      "id": "8de4d476-6d3b-482b-b373-602295eb8472",
+      "name": "Code in Python (Beta)"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=summarize : {{ $json.data }}\n",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        0
+      ],
+      "id": "c99fcee8-5c45-48ce-b487-2c71c0318b1a",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        976,
+        224
+      ],
+      "id": "b64aa334-8ab0-4f37-b2bf-db4e1f23561f",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "R8FQDo5fz86REGZp",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "# intelligent PDF summarizer\n",
+        "height": 560,
+        "width": 1376
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -96,
+        -192
+      ],
+      "typeVersion": 1,
+      "id": "a5312b36-4bf0-4142-a9a6-4325be1e7e17",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Code in Python (Beta)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in Python (Beta)": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        []
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8100a12c-1724-40a8-aaae-cecc5daa0986",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e96a60a9a6ad2714c5f9276f5d5b86cb04f0d67db11aa887a2aa6dbf5828a720"
+  },
+  "id": "fnb7Nc9Je6PK3NNu",
+  "tags": []
+}

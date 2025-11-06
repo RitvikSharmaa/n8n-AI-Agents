@@ -1,0 +1,290 @@
+{
+  "name": "RAG AI agent",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Upload your file here",
+        "formDescription": "upload documents",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Upload File(s) ",
+              "fieldType": "file",
+              "acceptFileTypes": ".pdf",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "972ac6a8-860b-42fe-b91a-aed77f4b0457",
+      "name": "Upload your file here",
+      "webhookId": "69eae188-cdd4-441c-b1d6-d75a8ab90c2b"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "n8ntest",
+          "mode": "list",
+          "cachedResultName": "n8ntest"
+        },
+        "embeddingBatchSize": 1024,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3,
+      "position": [
+        208,
+        0
+      ],
+      "id": "a6add826-990a-43c0-86f3-b400ab5e4641",
+      "name": "Pinecone Vector Store",
+      "credentials": {
+        "pineconeApi": {
+          "id": "qDeyYHZU7UVClqGR",
+          "name": "PineconeApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataType": "binary",
+        "binaryMode": "specificField",
+        "binaryDataKey": "Upload_File_s__",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        400,
+        176
+      ],
+      "id": "2aa937b1-8a87-4c48-a55b-30f860bdf3b8",
+      "name": "Default Data Loader"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        560,
+        0
+      ],
+      "id": "df1ace5d-1534-4e2c-8e5c-61b207ff4ac6",
+      "name": "When chat message received",
+      "webhookId": "ca0a7373-80d9-4551-9085-77ff3db6e149"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are a helpful assistant, answer the user message using the information from the pinecone vector store."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        768,
+        0
+      ],
+      "id": "cc465468-855c-4758-b2ba-4454a8145cab",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        640,
+        208
+      ],
+      "id": "0efac7d9-40e6-43cd-896a-78a202d4f3e1",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "R8FQDo5fz86REGZp",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Retrieve document from the pinecone datatore",
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "n8ntest",
+          "mode": "list",
+          "cachedResultName": "n8ntest"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3,
+      "position": [
+        1040,
+        256
+      ],
+      "id": "cd9213b7-e922-4963-91fb-27ecba51ee52",
+      "name": "Pinecone document retriever",
+      "credentials": {
+        "pineconeApi": {
+          "id": "qDeyYHZU7UVClqGR",
+          "name": "PineconeApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "embed-english-v3.0"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsCohere",
+      "typeVersion": 1,
+      "position": [
+        560,
+        624
+      ],
+      "id": "0d67e5d9-2bcd-4cc7-a779-0bd13e0cd86c",
+      "name": "Embeddings Cohere",
+      "credentials": {
+        "cohereApi": {
+          "id": "GWe4zAOb02qkSM27",
+          "name": "CohereApi account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        784,
+        208
+      ],
+      "id": "e738e9c0-2ce8-45e5-90eb-c9381aeca715",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "content": "# RAG AI Agent\n",
+        "height": 832,
+        "width": 1360
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -48,
+        -64
+      ],
+      "typeVersion": 1,
+      "id": "a0bf6427-440b-48c2-8639-fc060c55bea9",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Upload your file here": {
+      "main": [
+        [
+          {
+            "node": "Pinecone Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Pinecone Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pinecone document retriever": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Cohere": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Pinecone Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          },
+          {
+            "node": "Pinecone document retriever",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "7b1a5617-5397-42a6-aa33-3d02098096d4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e96a60a9a6ad2714c5f9276f5d5b86cb04f0d67db11aa887a2aa6dbf5828a720"
+  },
+  "id": "6Ldiwwh5rfSys4zF",
+  "tags": []
+}

@@ -1,0 +1,857 @@
+{
+  "name": "interview prep agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "interview-agent",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -736,
+        -544
+      ],
+      "id": "2b5134f4-7e9b-45f9-977c-3ad5a79ad129",
+      "name": "Webhook",
+      "webhookId": "78fd8b53-b3f0-413f-bc6f-2c604b854c3a"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "users",
+        "fields": "={\n  \"user_id\": \"{{$json.user_id}}\",\n  \"createdAt\": \"{{ $json.updatedAt }}\"\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        608,
+        -256
+      ],
+      "id": "a23e5004-689f-4e6b-9633-52ae2db58b04",
+      "name": "Insert new user details",
+      "credentials": {
+        "mongoDb": {
+          "id": "iuj2chX4pswjgQ6T",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=AIzaSyDMBk92BVuCwYjiM81QTWqc7a_EqXjG9zQ",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\"text\": \"User said:{{ $('Webhook').item.json.body.message }} . Give a helpful AI response . make sure to have knowledge of the previous history of the user which is  {{ $json.messages }} .first welcome the user : Welcome back, {{ $('check if user exists').item.json.name }}! Your user ID is {{ $('check if user exists').item.json.user_id }} , then become a helpful assistent to assist the user.\"}\n      ]\n    }\n  ]\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        608,
+        -608
+      ],
+      "id": "2624e391-8297-48b4-bef4-2f7ece8d1c69",
+      "name": "Gemini API"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"message\": $json.candidates[0].content.parts[0].text } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        832,
+        -608
+      ],
+      "id": "61262d0d-10b7-4bc3-a616-2b90297f685d",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "collection": "chat_history",
+        "options": {},
+        "query": "={\n  \"user_id\": \"{{ $('Webhook').item.json.body.user_id }}\"\n}\n"
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        384,
+        -608
+      ],
+      "id": "e353ce2a-4f7b-4d23-a604-7eca60e40f7f",
+      "name": "check history",
+      "credentials": {
+        "mongoDb": {
+          "id": "iuj2chX4pswjgQ6T",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=AIzaSyDMBk92BVuCwYjiM81QTWqc7a_EqXjG9zQ",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\"text\": \"User said:{{ $('Webhook').item.json.body.message }} , first of all inform the user that he is a new user and that you have entered his id ({{ $('Webhook').item.json.body.user_id }}) in the database , greet him and then be a helpful assistent to answer his query.\"}\n      ]\n    }\n  ]\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        832,
+        -256
+      ],
+      "id": "c7bbdd0c-b080-4c87-a958-5f1f914dbc42",
+      "name": "Gemini API1"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"message\": $('Gemini API1').item.json.candidates[0].content.parts[0].text } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1568,
+        -256
+      ],
+      "id": "f0ba0d7f-fc2f-41ea-bee1-b3a990419e07",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- pull previous chat (from your Mongo Find node) ---\nconst prevDoc = ($items('check history')[0]?.json) || {};\nconst history = Array.isArray(prevDoc.messages) ? [...prevDoc.messages] : [];\n\n// --- ids & texts from upstream nodes ---\nconst userId =\n  $node['Webhook'].json.body?.user_id ??\n  prevDoc.user_id ??\n  $json.user_id;\n\nconst userText =\n  $node['Webhook'].json.body?.message ??\n  $json.message ?? '';\n\nconst aiText =\n  $node['Gemini API'].json.candidates?.[0]?.content?.parts?.[0]?.text ??\n  $json.assistant_reply ?? '';\n\n// --- push both messages (only if present) ---\nconst now = new Date().toISOString();\nif (userText) history.push({ role: 'user',      content: userText, timestamp: now });\nif (aiText)   history.push({ role: 'assistant', content: aiText,   timestamp: now });\n\n// --- return for Mongo UpdateOne / Find and Update ---\nreturn [{\n  json: {\n    user_id: userId,\n    messages: history,\n    updatedAt: now\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1056,
+        -608
+      ],
+      "id": "6bd3e47a-a574-4ff5-a458-a871b36f7730",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3fd8ebd6-ac0d-4d58-a85a-67b7f62e2c64",
+              "leftValue": "={{ $('check if user exists').item.json.user_id }}",
+              "rightValue": "=",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        160,
+        -448
+      ],
+      "id": "265ab902-609f-4f89-9ec0-9e9753efdcc9",
+      "name": "check of old user or new user"
+    },
+    {
+      "parameters": {
+        "operation": "findOneAndUpdate",
+        "collection": "chat_history",
+        "updateKey": "user_id",
+        "fields": "messages, updatedAt",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        1280,
+        -608
+      ],
+      "id": "5424c88a-48ce-4ba6-905a-f5cc4ce6619a",
+      "name": "Find and update chat history",
+      "credentials": {
+        "mongoDb": {
+          "id": "iuj2chX4pswjgQ6T",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// new user register preparation\n\n// webhook gives user_id + message\nconst userId = $('Webhook').first().json.body.user_id;\nconst userMessage = $('Webhook').first().json.body.message;\n\n// prepare new user DB doc basic structure\nreturn [\n  {\n    json: {\n      user_id: userId,\n      messages: [\n        {\n          role: \"user\",\n          content: userMessage,\n          timestamp: new Date().toISOString()\n        }\n      ],\n      updatedAt: new Date().toISOString()\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        384,
+        -256
+      ],
+      "id": "e41fb9e9-9054-4cd3-9457-b0ae1ea4b603",
+      "name": "prepare user details"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1) user message ( comes from webhook body )\nconst userMessage = {\n  role: \"user\",\n  content: $('Webhook').first().json.body.message,  // <-- must come from your webhook body input\n  timestamp: new Date().toISOString()\n};\n\n// 2) assistant reply ( comes from Gemini API previous node )\nconst aiReply = {\n  role: \"assistant\",\n  content: $input.first().json.candidates[0].content.parts[0].text,   // <-- map correct json field (example: $json.geminiReply)\n  timestamp: new Date().toISOString()\n};\n\n// 3) final initial history array for new user\nconst history = [ userMessage , aiReply ];\n\n// return structure that mongo insert expects\nreturn [\n  {\n    json: {\n      user_id: $('Webhook').first().json.body.user_id,\n      messages: history,\n      updatedAt: new Date().toISOString()\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1056,
+        -256
+      ],
+      "id": "8cf799ad-8f64-4309-bbda-60c88114b8e8",
+      "name": "prepare user details 2"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "chat_history",
+        "fields": "={\n  \"user_id\": \"={{$json.user_id}}\",\n  \"messages\": {{$json.messages}},\n  \"updatedAt\": \"={{$json.updatedAt}}\"\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        1280,
+        -256
+      ],
+      "id": "b58106d7-cef3-4f5f-bfb6-d8029fce451a",
+      "name": "Insert in history",
+      "credentials": {
+        "mongoDb": {
+          "id": "iuj2chX4pswjgQ6T",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1936,
+        -32
+      ],
+      "id": "d0d32312-65aa-433f-a022-0f4653593d4c",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "8WoCAVpHmQfzmaVP",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1584,
+        -480
+      ],
+      "id": "01b36a9a-685c-4e7a-be18-ebc3aea26cc0",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "HSUjKgeNekK9j4cP",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2d87655e-e995-45db-87eb-0acbdb93977c",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1920,
+        -608
+      ],
+      "id": "3e1554c4-3156-4de5-b432-409369a67079",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "technical_queries ",
+        "fields": "={\n  \"user_id\": \"{{ $('Webhook').item.json.body.user_id }}\",\n  \"question\": \"{{ $('Webhook').item.json.body.message }}\",\n\"createdAt\": \"={{new Date().toISOString()}}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        2208,
+        -704
+      ],
+      "id": "33a2fb07-5e77-4789-8583-5b61dc207a36",
+      "name": "insert in technical_queries",
+      "credentials": {
+        "mongoDb": {
+          "id": "iuj2chX4pswjgQ6T",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "behavioral_queries",
+        "fields": "={   \"user_id\": \"{{ $('Webhook').item.json.body.user_id }}\",   \"question\": \"{{ $('Webhook').item.json.body.message }}\", \"createdAt\": \"={{new Date().toISOString()}}\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        2208,
+        -512
+      ],
+      "id": "27fdf192-cfd0-4bcf-bcee-8d8c1394b9ed",
+      "name": "Insert query to behavioral questions",
+      "credentials": {
+        "mongoDb": {
+          "id": "iuj2chX4pswjgQ6T",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "13bd0818-1c35-4c5c-8f3a-3f9e2cf4e8f6",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2208,
+        -256
+      ],
+      "id": "1e7a5a53-0491-4873-bc0c-62319996fb83",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "technical_queries ",
+        "fields": "={   \"user_id\": \"{{ $('Webhook').item.json.body.user_id }}\",   \"question\": \"{{ $('Webhook').item.json.body.message }}\", \"createdAt\": \"={{new Date().toISOString()}}\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        2432,
+        -352
+      ],
+      "id": "6426bd79-bb9c-4776-8b9d-007462b594c4",
+      "name": "technical query",
+      "credentials": {
+        "mongoDb": {
+          "id": "iuj2chX4pswjgQ6T",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "behavioral_queries",
+        "fields": "={   \"user_id\": \"{{ $('Webhook').item.json.body.user_id }}\",   \"question\": \"{{ $('Webhook').item.json.body.message }}\", \"createdAt\": \"{{new Date().toISOString()}}\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        2432,
+        -160
+      ],
+      "id": "dd64bcc1-38a7-4e73-b95e-7524a5a2bc34",
+      "name": "behavioral",
+      "credentials": {
+        "mongoDb": {
+          "id": "iuj2chX4pswjgQ6T",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "collection": "users",
+        "options": {},
+        "query": "={ \"user_id\": \"{{$json.body.user_id}}\" }\n"
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        -512,
+        -544
+      ],
+      "id": "fa912564-e9a0-4167-bc6f-4efc4d7e6d32",
+      "name": "check if user exists",
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "iuj2chX4pswjgQ6T",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// last_active stored in users collection\nconst lastActive = $input.first().json.last_active ? new Date($input.first().json.last_active) : null;\n\nif(!lastActive){\n  // first time user so continue\n  return [{ json: { inactive:false }}];\n}\n\n// calculate difference in minutes\nconst diffMin = (Date.now() - lastActive.getTime()) / 1000 / 60;\n\n// if > 1 minute => close chat\nconst inactive = diffMin > 1;\n\nreturn [{\n  json: {\n    inactive\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -288,
+        -544
+      ],
+      "id": "843c23a4-1ae7-4004-9a84-26ac27f8d46f",
+      "name": "check inactivity"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "6f04c547-c697-4935-9345-56f26c11fcf9",
+              "leftValue": "={{ $json.inactive }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -64,
+        -544
+      ],
+      "id": "d3b6b4e1-596e-4ae7-a33b-0f88d1999fe0",
+      "name": "inactivity decision"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseKey": "The chat is closed. Sending you off with the biggest smile and best wishes! See ya! 👋"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        160,
+        -640
+      ],
+      "id": "46cf873e-5672-43ca-9cee-f718760f10fb",
+      "name": "Respond chat closed"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=you are a interview question classifier , how have a query ehich is ({{ $('Webhook').item.json.body.message }}) , now you need to check if this question is technical or not, if it is technical , just output one word i.e \"true\" , else don't output anything.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        1504,
+        -704
+      ],
+      "id": "f2fc8c5a-0559-4ae9-a1dd-44bacd61f422",
+      "name": "Query classification"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=you are a interview question classifier , how have a query ehich is ({{ $('Webhook').item.json.body.message }}) , now you need to check if this question is technical or not, if it is technical , just output one word i.e \"true\" , else don't output anything.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        1856,
+        -256
+      ],
+      "id": "a4d489e4-896e-4d0c-bd51-6875963babd1",
+      "name": "Query classification1"
+    },
+    {
+      "parameters": {
+        "content": "# Interview Preparation Agent",
+        "height": 880,
+        "width": 3440
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -784,
+        -752
+      ],
+      "typeVersion": 1,
+      "id": "3fd44dde-71e7-4f46-9867-e9d17de1bb71",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "check if user exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert new user details": {
+      "main": [
+        [
+          {
+            "node": "Gemini API1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini API": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check history": {
+      "main": [
+        [
+          {
+            "node": "Gemini API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini API1": {
+      "main": [
+        [
+          {
+            "node": "prepare user details 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Find and update chat history",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check of old user or new user": {
+      "main": [
+        [
+          {
+            "node": "check history",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "prepare user details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "prepare user details": {
+      "main": [
+        [
+          {
+            "node": "Insert new user details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "prepare user details 2": {
+      "main": [
+        [
+          {
+            "node": "Insert in history",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert in history": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find and update chat history": {
+      "main": [
+        [
+          {
+            "node": "Query classification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Query classification1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Query classification1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Query classification",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "insert in technical_queries",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert query to behavioral questions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "technical query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "behavioral",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check if user exists": {
+      "main": [
+        [
+          {
+            "node": "check inactivity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check inactivity": {
+      "main": [
+        [
+          {
+            "node": "inactivity decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "inactivity decision": {
+      "main": [
+        [
+          {
+            "node": "Respond chat closed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "check of old user or new user",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query classification": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query classification1": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "509e5357-63c1-468c-9c67-684c53b2994d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a8c46dbd065bf4d898b2886ff6c301b506a16ef89e8e458867973817a4e1be68"
+  },
+  "id": "zWsUP0n8MAsDAMUz",
+  "tags": []
+}
