@@ -68,9 +68,3 @@ Each folder contains workflow JSON export for that agent.
 ## Author
 
 **Designed & Developed by Ritvik Sharma**
-
-Tell me after you commit:
-
-**DONE root readme committed**
-
-and I will start generating individual folder README’s one-by-one.
