@@ -34,6 +34,11 @@ Each workflow is exportable, reusable, and immediately deployable inside any n8n
 
 <img width="100%" src="https://github.com/user-attachments/assets/6d45e8c2-aad2-43eb-818a-8451565bbe82" />
 
+
+# Mindcare Companion AI Agent
+
+<img width="1417" height="625" alt="image" src="https://github.com/user-attachments/assets/7716f957-f583-438c-8fcc-d5e7d467d359" />
+
 ---
 
 ## Tech Stack Used
@@ -60,6 +65,7 @@ Each folder contains workflow JSON export for that agent.
 /PDF-Summarizer
 /RAG-AI-Agent
 ```
+
 
 > Import any JSON directly inside n8n → it becomes a ready to run pipeline.
 
